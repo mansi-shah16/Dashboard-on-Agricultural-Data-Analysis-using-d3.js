@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.bar {
+  fill: steelblue;
+}
+
+</style>
+<body>
+
+<div id="stackedbars">
+ 
+  <svg id="stacked" width="820" height="520"></svg></div>
+</body>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+
+
+var svg = d3.select("#stacked"),
+    margin = {top: 90, right: 280, bottom: 90, left: 70},
+  
+    width = +svg.attr("width") - margin.left - margin.right,
+    height = +svg.attr("height") - margin.top - margin.bottom,
+   
+    g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+var x = d3.scaleBand()
+    .rangeRound([0, width])
+    
+    .padding(0.3)
+    
+    .align(.3);
+
+
+var y = d3.scaleLinear()
+    .range([height, 0]);
+
+
+var z = d3.scaleOrdinal(d3.schemeCategory20);
+
+var stack = d3.stack();
+
+svg.append("text")
+.attr("transform", "translate(100,0)")
+.attr("x", -30)
+.attr("y", 40)
+.attr("font-size", "28px")
+.style("font-weight", "bold")
+.text("Statewise production distribution of crops");
+
+
+d3.csv("stacked_bar.csv", type, function(error, data) {
+  if (error) throw error;
+  console.log(data)
+  data.sort(function(a, b) {return b.total - a.total; });
+
+  x.domain(data.map(function(d) { return d.Year; }));
+
+  y.domain([0, d3.max(data, function(d) { return d.total; })]).nice();
+
+  z.domain(data.columns.slice(1));
+
+
+  g.selectAll(".serie")
+
+    .data(stack.keys(data.columns.slice(1))(data))
+  
+    .enter().append("g")
+      .attr("class", "serie")
+    
+      .attr("fill", function(d) { return z(d.key); })
+    .selectAll("rect")
+    .data(function(d) { return d; })
+    .enter().append("rect")
+      
+      .attr("x", function(d) { return x(d.data.Year); })
+      
+      .attr("y", function(d) { return y(d[1]); })
+
+      .attr("height", function(d) {return y(d[0]) - y(d[1]); })
+
+      .attr("width", x.bandwidth());
+
+  
+  g.append("g")
+      .attr("class", "axis axis--x")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x))
+
+      .append("text")
+      
+      .attr("x", 200)
+      .attr("y", y(y.ticks(10).pop()))
+      .attr("dy", "40.35")
+      .attr("text-anchor", "start")
+      .style('font-family', 'serif')
+      .style('font-size', 14)
+      .style("font-weight", "bold")
+      .attr("fill", "#000")
+      .text("States");
+
+  
+  g.append("g")
+      .attr("class", "axis axis--y")
+  
+      .call(d3.axisLeft(y).ticks(10, "s"))
+  
+    .append("text")
+      
+      .attr("x", 2)
+      .attr("y", y(y.ticks(10).pop()))
+      .attr("dy", "0.35")
+      .attr("text-anchor", "start")
+      .style('font-family', 'serif')
+      .style('font-size', 14)
+      .style("font-weight", "bold")
+      .attr("fill", "#000")
+      .text("Yield(kilo Quintol/hectre)");
+      
+
+
+  var legend = g.selectAll(".legend")
+  
+    .data(data.columns.slice(1).reverse())
+    .enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; })
+      .style("font", "12px serif");
+
+    legend.append("rect")
+      .attr("x", width + 50) 
+      .attr("width", 18)
+      .attr("height", 18)
+      .attr("fill", z);
+
+  legend.append("text")
+      .attr("x", width + 75)
+      .attr("y",9)
+      .attr("dy", ".35em")
+      .attr("text-anchor", "start")
+      .text(function(d) { return d; }); 
+});
+
+
+function type(d, i, columns) {
+  for (i = 1, t = 0; i < columns.length; ++i) 
+  t += d[columns[i]] = +d[columns[i]];
+  d.total = t;
+  return d;
+/*
+var tooltip = d3.select("stackedbars")
+    .append("div")
+    .style("opacity", 0)
+    .attr("class", "tooltip")
+    .style("background-color", "white")
+    .style("border", "solid")
+    .style("border-width", "1px")
+    .style("border-radius", "5px")
+    .style("padding", "10px")
+
+  // Three function that change the tooltip when user hover / move / leave a cell
+  var mouseover = function(d) {
+    var subgroupName = d3.select(this.parentNode).datum().key;
+    var subgroupValue = d.data[subgroupName];
+    tooltip
+        .html("subgroup: " + subgroupName + "<br>" + "Value: " + subgroupValue)
+        .style("opacity", 1)
+  }
+  var mousemove = function(d) {
+    tooltip
+      .style("left", (d3.mouse(this)[0]+90) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+      .style("top", (d3.mouse(this)[1]) + "px")
+  }
+  var mouseleave = function(d) {
+    tooltip
+      .style("opacity", 0)
+  }
+
+
+
+
+  // Show the bars
+  svg.append("g")
+    .selectAll("g")
+    // Enter in the stack data = loop key per key = group per group
+    .data(stackedData)
+    .enter().append("g")
+      .attr("fill", function(d) { return color(d.key); })
+      .selectAll("rect")
+      // enter a second time = loop subgroup per subgroup to add all rectangles
+      .data(function(d) { return d; })
+      .enter().append("rect")
+        .attr("x", function(d) { return x(d.data.Year); })
+        .attr("y", function(d) { return y(d[1]); })
+        .attr("height", function(d) { return y(d[0]) - y(d[1]); })
+        .attr("width",x.bandwidth())
+        .attr("stroke", "grey")
+      .on("mouseover", mouseover)
+      .on("mousemove", mousemove)
+      .on("mouseleave", mouseleave)
+
+*/
+}
+
+</script>
+</body>
+</html>
